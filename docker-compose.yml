@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  goddevx:
+    build: .
+    container_name: goddevx-agent
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./workspace:/app/workspace
+      - ./logs:/app/logs
+      - /var/run/docker.sock:/var/run/docker.sock  # For Docker-in-Docker
+    environment:
+      - AGENT_DEBUG=false
+      - AGENT_LLM__PROVIDER=ollama
+      - AGENT_LLM__MODEL_NAME=mixtral:8x7b
+      - AGENT_LLM__BASE_URL=http://ollama:11434
+      - AGENT_MEMORY__PERSIST_DIRECTORY=/app/data/memory
+      - AGENT_EXECUTOR__WORKING_DIRECTORY=/app/workspace
+      - AGENT_UI__HOST=0.0.0.0
+      - AGENT_UI__PORT=8000
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    networks:
+      - goddevx-network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: goddevx-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    restart: unless-stopped
+    networks:
+      - goddevx-network
+    # Uncomment if you have GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # Optional: ChromaDB as external service
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: goddevx-chromadb
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_PORT=8000
+    restart: unless-stopped
+    networks:
+      - goddevx-network
+
+volumes:
+  ollama_data:
+    driver: local
+  chroma_data:
+    driver: local
+
+networks:
+  goddevx-network:
+    driver: bridge
